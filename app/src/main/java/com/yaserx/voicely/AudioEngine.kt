@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.net.Uri
+import android.os.ParcelFileDescriptor
+import java.io.File
 
 /** Small, low-latency soundboard engine backed by SoundPool. */
 object AudioEngine {
@@ -19,10 +21,7 @@ object AudioEngine {
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        pool = SoundPool.Builder()
-            .setAudioAttributes(attributes)
-            .setMaxStreams(16)
-            .build()
+        pool = SoundPool.Builder().setAudioAttributes(attributes).setMaxStreams(16).build()
         pool?.setOnLoadCompleteListener { soundPool, sampleId, status ->
             val itemId = sampleIds.entries.firstOrNull { it.value == sampleId }?.key
             if (itemId != null) {
@@ -30,9 +29,7 @@ object AudioEngine {
                 if (status == 0) {
                     ready.add(itemId)
                     val count = queuedPlays.remove(itemId) ?: 0
-                    repeat(count.coerceAtMost(4)) {
-                        soundPool.play(sampleId, 1f, 1f, 1, 0, 1f)
-                    }
+                    repeat(count.coerceAtMost(4)) { soundPool.play(sampleId, 1f, 1f, 1, 0, 1f) }
                 } else {
                     sampleIds.remove(itemId)
                     queuedPlays.remove(itemId)
@@ -45,7 +42,13 @@ object AudioEngine {
         init()
         if (sampleIds.containsKey(sound.id) || loading.contains(sound.id)) return
         runCatching {
-            val afd = context.contentResolver.openAssetFileDescriptor(Uri.parse(sound.uri), "r") ?: return
+            val uri = Uri.parse(sound.uri)
+            val afd = if (uri.scheme == "file") {
+                val pfd = ParcelFileDescriptor.open(File(uri.path!!), ParcelFileDescriptor.MODE_READ_ONLY)
+                android.content.res.AssetFileDescriptor(pfd, 0, pfd.statSize())
+            } else {
+                context.contentResolver.openAssetFileDescriptor(uri, "r")
+            } ?: return
             val sampleId = pool?.load(afd.fileDescriptor, afd.startOffset, afd.length, 1) ?: 0
             afd.close()
             if (sampleId != 0) {
