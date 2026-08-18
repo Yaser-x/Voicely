@@ -12,6 +12,7 @@ import android.media.SoundPool
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -20,6 +21,7 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import java.io.File
 
 /** Floating controller for Voicely's own soundboard playback. */
 class FloatingService : Service() {
@@ -64,7 +66,6 @@ class FloatingService : Service() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -88,13 +89,7 @@ class FloatingService : Service() {
         } else {
             WindowManager.LayoutParams.TYPE_PHONE
         }
-        return WindowManager.LayoutParams(
-            width,
-            height,
-            type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
+        return WindowManager.LayoutParams(width, height, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.END
             x = dp(18)
             y = dp(160)
@@ -134,7 +129,6 @@ class FloatingService : Service() {
             textSize = 12f
             setPadding(dp(4), dp(2), dp(4), dp(8))
         })
-
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         sounds.take(6).forEach { sound ->
             row.addView(TextView(this).apply {
@@ -158,7 +152,6 @@ class FloatingService : Service() {
             setPadding(0, dp(8), 0, dp(2))
             setOnClickListener { removePanel() }
         })
-
         panel = root
         windowManager.addView(root, overlayParams(dp(300), dp(150)))
     }
@@ -181,7 +174,13 @@ class FloatingService : Service() {
             return
         }
         runCatching {
-            val afd = contentResolver.openAssetFileDescriptor(Uri.parse(sound.uri), "r") ?: return
+            val uri = Uri.parse(sound.uri)
+            val afd = if (uri.scheme == "file") {
+                val pfd = ParcelFileDescriptor.open(File(uri.path!!), ParcelFileDescriptor.MODE_READ_ONLY)
+                android.content.res.AssetFileDescriptor(pfd, 0, pfd.statSize())
+            } else {
+                contentResolver.openAssetFileDescriptor(uri, "r")
+            } ?: return
             val id = pool?.load(afd.fileDescriptor, afd.startOffset, afd.length, 1) ?: 0
             afd.close()
             if (id != 0) {
