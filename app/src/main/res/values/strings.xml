@@ -2,4 +2,8 @@
 <resources>
     <string name="app_name">Voicely</string>
     <string name="app_tagline">Sound. React. Dominate.</string>
+    <string name="app_description">A fast, offline-first soundboard for gamers and creators.</string>
+    <string name="game_mode">Game Mode</string>
+    <string name="notification_game_mode">Voicely Game Mode</string>
+    <string name="notification_game_mode_active">Floating soundboard is active</string>
 </resources>
