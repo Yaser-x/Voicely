@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="voicely_icon_background">#090611</color>
+    <color name="voicely_icon_purple">#8B5CF6</color>
+    <color name="voicely_icon_pink">#F472D0</color>
+    <color name="voicely_icon_blue">#60A5FA</color>
+</resources>
