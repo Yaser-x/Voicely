@@ -4,10 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.media.AudioAttributes
 import android.media.SoundPool
 import android.net.Uri
 import android.os.Build
@@ -21,12 +21,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 
-/**
- * Floating in-game controller.
- *
- * This service only controls Voicely's own audio playback. Android does not
- * expose a public API for injecting this audio into another app's microphone.
- */
+/** Floating controller for Voicely's own soundboard playback. */
 class FloatingService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubble: TextView? = null
@@ -42,7 +37,15 @@ class FloatingService : Service() {
         createNotificationChannel()
         startAsForeground()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        pool = SoundPool.Builder().setMaxStreams(8).build()
+        pool = SoundPool.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .setMaxStreams(8)
+            .build()
         loadSavedSounds()
         showBubble()
     }
@@ -63,11 +66,7 @@ class FloatingService : Service() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -75,13 +74,10 @@ class FloatingService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "Voicely Game Mode",
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply { description = "Keeps the Voicely gaming controller active" }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Voicely Game Mode", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Keeps the Voicely gaming controller active"
+                }
             )
         }
     }
@@ -90,39 +86,35 @@ class FloatingService : Service() {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
-            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+            WindowManager.LayoutParams.TYPE_PHONE
         }
         return WindowManager.LayoutParams(
             width,
             height,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.END
-            x = 18
-            y = 160
+            x = dp(18)
+            y = dp(160)
         }
     }
 
     private fun showBubble() {
         if (!Settings.canDrawOverlays(this) || bubble != null) return
-
-        val view = TextView(this).apply {
+        bubble = TextView(this).apply {
             text = "🎛"
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.rgb(255, 184, 0))
-            setPadding(8, 8, 8, 8)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
             elevation = 20f
             setOnClickListener { togglePanel() }
             setOnTouchListener(DragTouchListener(this@FloatingService))
         }
-
-        bubble = view
-        windowManager.addView(view, overlayParams(dp(54), dp(54)))
+        windowManager.addView(bubble, overlayParams(dp(54), dp(54)))
     }
 
     private fun togglePanel() {
@@ -130,27 +122,22 @@ class FloatingService : Service() {
             removePanel()
             return
         }
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(10), dp(10), dp(10))
             setBackgroundColor(Color.rgb(17, 19, 25))
             elevation = 24f
         }
-
-        val title = TextView(this).apply {
+        root.addView(TextView(this).apply {
             text = "VOICELY  •  GAME MODE"
             setTextColor(Color.WHITE)
             textSize = 12f
             setPadding(dp(4), dp(2), dp(4), dp(8))
-        }
-        root.addView(title)
+        })
 
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         sounds.take(6).forEach { sound ->
-            val button = TextView(this).apply {
+            row.addView(TextView(this).apply {
                 text = sound.title.take(9)
                 gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
@@ -158,43 +145,33 @@ class FloatingService : Service() {
                 setBackgroundColor(Color.rgb(35, 39, 48))
                 setPadding(dp(8), dp(8), dp(8), dp(8))
                 setOnClickListener { play(sound) }
-            }
-            row.addView(button, LinearLayout.LayoutParams(0, dp(54), 1f).apply {
+            }, LinearLayout.LayoutParams(0, dp(54), 1f).apply {
                 setMargins(dp(3), dp(3), dp(3), dp(3))
             })
         }
         root.addView(row)
-
-        val close = TextView(this).apply {
+        root.addView(TextView(this).apply {
             text = "CLOSE"
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(255, 184, 0))
             textSize = 10f
             setPadding(0, dp(8), 0, dp(2))
             setOnClickListener { removePanel() }
-        }
-        root.addView(close)
+        })
 
         panel = root
-        windowManager.addView(root, overlayParams(dp(300), dp(105)))
+        windowManager.addView(root, overlayParams(dp(300), dp(150)))
     }
 
     private fun removePanel() {
-        panel?.let {
-            runCatching { windowManager.removeView(it) }
-        }
+        panel?.let { runCatching { windowManager.removeView(it) } }
         panel = null
     }
 
     private fun loadSavedSounds() {
-        val prefs = getSharedPreferences("voicely", Context.MODE_PRIVATE)
-        val raw = prefs.getString("sounds", "") ?: return
-        raw.split("\\n").forEach { row ->
-            val p = row.split("|", limit = 4)
-            if (p.size == 4 && p[0].isNotBlank() && p[2].isNotBlank()) {
-                sounds += OverlaySound(p[0], p[1], p[2])
-            }
-        }
+        SoundLibrary.init(this)
+        sounds.clear()
+        SoundLibrary.all().take(24).forEach { sounds += OverlaySound(it.id, it.title, it.uri) }
     }
 
     private fun play(sound: OverlaySound) {
@@ -203,7 +180,6 @@ class FloatingService : Service() {
             pool?.play(existing, 1f, 1f, 1, 0, 1f)
             return
         }
-
         runCatching {
             val afd = contentResolver.openAssetFileDescriptor(Uri.parse(sound.uri), "r") ?: return
             val id = pool?.load(afd.fileDescriptor, afd.startOffset, afd.length, 1) ?: 0
@@ -247,7 +223,7 @@ class FloatingService : Service() {
                     startX = params.x
                     startY = params.y
                     moved = false
-                    return true
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - downX).toInt()
@@ -256,14 +232,14 @@ class FloatingService : Service() {
                     params.x = startX - dx
                     params.y = startY + dy
                     service.windowManager.updateViewLayout(v, params)
-                    return true
+                    true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!moved) v.performClick()
-                    return true
+                    true
                 }
+                else -> false
             }
-            return false
         }
     }
 
