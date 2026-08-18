@@ -5,14 +5,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 
-/**
- * Read-only USB audio capability layer.
- *
- * Voicely does not attempt to create a virtual microphone or inject audio into
- * another app. This manager detects class-compliant USB audio endpoints so the
- * UI/audio layer can present truthful hardware status and use Android's normal
- * device routing when a supported mixer/interface is connected.
- */
+/** Read-only USB audio capability layer plus automatic route refresh. */
 object UsbAudioManager {
     data class Device(
         val id: Int,
@@ -32,9 +25,8 @@ object UsbAudioManager {
     }
 
     fun connectedDevices(context: Context): List<Device> {
-        val audioManager = context.getSystemService(AudioManager::class.java)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return emptyList()
-
+        val audioManager = context.getSystemService(AudioManager::class.java)
         return audioManager.getDevices(AudioManager.GET_DEVICES_ALL)
             .filter(::isUsbAudioDevice)
             .map { info ->
@@ -50,7 +42,13 @@ object UsbAudioManager {
             .distinctBy { it.id }
     }
 
-    fun hasUsbInput(context: Context): Boolean = connectedDevices(context).any { it.isInput }
+    fun refresh(context: Context) {
+        // Device attach/detach changes Android's available audio devices.
+        // Reading the list again is enough to make the next playback/recording
+        // operation use the current Android routing state.
+        connectedDevices(context)
+    }
 
+    fun hasUsbInput(context: Context): Boolean = connectedDevices(context).any { it.isInput }
     fun hasUsbOutput(context: Context): Boolean = connectedDevices(context).any { it.isOutput }
 }
