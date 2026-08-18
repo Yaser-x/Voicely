@@ -1,34 +1,47 @@
 # Voicely
 
-A gaming-first Android soundboard built with Kotlin + Jetpack Compose.
+**Sound. React. Dominate.**
 
-## Current build
+Voicely is a gaming-first Android soundboard for quick meme/reaction playback, personal audio libraries and an in-game floating controller.
 
-- Premium dark gaming UI
-- Local MP3/WAV/OGG importing through Android's document picker
+## What is implemented
+
+- Kotlin + Jetpack Compose UI
+- Voicely dark gaming visual identity
+- Custom launcher/adaptive icon
+- MP3, WAV and OGG import through the Android document picker
 - Persistent local sound library
-- Instant soundboard playback using Android SoundPool
-- Favorites
-- Search
-- Gaming / Memes / Reactions board views
-- Studio microphone recording
-- Floating Game Mode overlay foundation
-- Foreground service for Game Mode
+- SoundPool playback with multiple simultaneous streams
+- Search and favorites
+- Gaming, Memes and Reactions board views
+- Local microphone recording studio
+- Floating Game Mode service
 - Microphone and overlay permission flow
+- Foreground-service support for the floating controller
 - Android 26+ / target SDK 35
-- GitHub Actions Android build
+- GitHub Actions Android build pipeline
 
-## Important audio limitation
+## Audio architecture
 
-Voicely does not claim to inject software audio directly into another app's microphone stream. Normal Android apps do not receive a public virtual-microphone injection API. For true in-game voice-chat mixing, the project is designed to remain compatible with legitimate external USB/analogue audio-mixer setups where the phone receives the mixed signal as a physical microphone input.
+The normal soundboard is completely usable without USB hardware.
 
-## Development direction
+Voicely intentionally does **not** pretend that a normal Android app can create a universal virtual microphone and inject arbitrary PCM audio into another game's microphone stream. Android does not expose that public API to ordinary apps.
 
-1. Soundboard and library
-2. Game Mode overlay
-3. Recording/studio improvements
-4. Hardware/USB audio compatibility layer
-5. Performance and device testing
-6. Release hardening
+For users who need true voice + soundboard mixing into a game's physical microphone input, the project keeps a hardware-audio path in its architecture. That is optional and depends on the phone, game and external audio hardware.
+
+## Privacy
+
+- Imported sounds stay local to the app unless the user explicitly exports/shares them.
+- Microphone access is requested only for recording features.
+- Overlay access is requested only for Game Mode.
+- No account or cloud backend is required for the core soundboard.
+
+## Build
+
+Open the repository in Android Studio or use the included GitHub Actions workflow to build the debug APK.
+
+## Project direction
+
+The product is intentionally being built in layers: core soundboard first, then richer board editing, studio/export improvements, Game Mode polish, optional hardware-audio compatibility, performance testing and release hardening.
 
 Use only audio you have permission to use and follow the rules of the games and platforms where Voicely is used.
